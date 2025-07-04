@@ -26,7 +26,7 @@ jobs:
       - name: Find cert files added in this push
         id: find_certs
         run: |
-          FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '\.(pem|crt|cer|key)$' || true)
+          FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '\\.(pem|crt|cer|key|txt)$' || true)
           echo "cert_files<<EOF" >> $GITHUB_OUTPUT
           echo "$FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
