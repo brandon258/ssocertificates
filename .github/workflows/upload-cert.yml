@@ -1,19 +1,19 @@
-name: Upload Certificate to S3
+name: Upload Certificate to S3 (Auto)
 
 on:
-  workflow_dispatch:
-    inputs:
-      cert_file_path:
-        description: "Path to the certificate file (relative to repo root)"
-        required: true
+  push:
+    branches:
+      - main
 
 jobs:
   upload:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -23,10 +23,33 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Upload certificate to S3
-        run: node upload_cert.js ${{ github.event.inputs.cert_file_path }}
+      - name: Find cert files added in this push
+        id: find_certs
+        run: |
+          FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep -E '\.(pem|crt|cer|key)$' || true)
+          echo "cert_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload each certificate to S3
+        if: steps.find_certs.outputs.cert_files != ''
+        run: |
+          echo "Uploading these files:"
+          echo "${{ steps.find_certs.outputs.cert_files }}"
+          while read -r file; do
+            node upload_cert.js "$file"
+          done <<< "${{ steps.find_certs.outputs.cert_files }}"
         env:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      - name: Remove uploaded certs from repo
+        if: steps.find_certs.outputs.cert_files != ''
+        run: |
+          git config --global user.email "github-actions@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+          git rm ${{ steps.find_certs.outputs.cert_files }}
+          git commit -m "Auto-delete uploaded cert files"
+          git push
