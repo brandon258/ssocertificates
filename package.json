@@ -1,0 +1,16 @@
+{
+  "name": "nodejs_upload_cert",
+  "version": "1.0.0",
+  "main": "upload_cert.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "aws-sdk": "^2.1692.0",
+    "dotenv": "^17.0.1"
+  }
+}
