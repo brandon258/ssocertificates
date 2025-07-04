@@ -1,47 +1,45 @@
-require("dotenv").config();
+const AWS = require("aws-sdk");
 const fs = require("fs");
 const path = require("path");
-const AWS = require("aws-sdk");
-const os = require("os");
+require("dotenv").config();
 
-const REGION = process.env.AWS_REGION || "us-west-2";
-const BUCKET_NAME = process.env.S3_BUCKET_NAME;
+const s3 = new AWS.S3({
+  region: process.env.AWS_REGION,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+});
 
-if (!BUCKET_NAME) {
-  console.error("❌ Error: S3_BUCKET_NAME not set in environment");
+const bucket = process.env.S3_BUCKET_NAME;
+const fileKey = process.argv[2];
+
+if (!bucket) {
+  console.error("❌ S3_BUCKET_NAME environment variable not set.");
   process.exit(1);
 }
 
-const filename = process.argv[2];
-if (!filename) {
-  console.error("❌ Usage: node download_cert.js <s3-object-key>");
+if (!fileKey) {
+  console.error(
+    "❌ You must provide the file name to download as an argument."
+  );
   process.exit(1);
 }
 
-const s3 = new AWS.S3({ region: REGION });
+const outputPath = path.join(process.cwd(), `downloaded-${fileKey}`);
 
-(async () => {
-  try {
-    const params = {
-      Bucket: BUCKET_NAME,
-      Key: filename,
-    };
+const params = {
+  Bucket: bucket,
+  Key: fileKey,
+};
 
-    const downloadsDir = path.join(os.homedir(), "Downloads");
-    const outputPath = path.join(downloadsDir, filename);
-    const file = fs.createWriteStream(outputPath);
+const file = fs.createWriteStream(outputPath);
 
-    const stream = s3.getObject(params).createReadStream();
-    stream.pipe(file);
-
-    stream.on("end", () => {
-      console.log(`✅ Download complete: ${outputPath}`);
-    });
-
-    stream.on("error", (err) => {
-      console.error("❌ Download failed:", err.message);
-    });
-  } catch (err) {
-    console.error("❌ Error:", err.message);
-  }
-})();
+s3.getObject(params)
+  .createReadStream()
+  .on("error", function (err) {
+    console.error("❌ Error downloading file:", err.message);
+    process.exit(1);
+  })
+  .pipe(file)
+  .on("close", () => {
+    console.log(`✅ File downloaded to: ${outputPath}`);
+  });
