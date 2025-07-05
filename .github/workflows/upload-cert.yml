@@ -23,10 +23,16 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Find cert files added in this push
+      - name: Find cert files added in last commit
         id: find_certs
         run: |
-          FILES=$(git diff --name-only HEAD~1 HEAD | grep -E '\.(pem|crt|cer|key|txt)$' || true)
+          git fetch --deepen=1
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            FILES=$(git diff --name-only HEAD~1 HEAD | grep -E '\.(pem|crt|cer|key|txt)$' || true)
+          else
+            FILES=$(git show --pretty="" --name-only HEAD | grep -E '\.(pem|crt|cer|key|txt)$' || true)
+          fi
+
           echo "cert_files<<EOF" >> $GITHUB_OUTPUT
           echo "$FILES" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
